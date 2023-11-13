@@ -74,6 +74,17 @@ load_palettes:
 
   bne @loop
 
+
+load_sprites:
+  LDX #$00
+
+load_sprites_loop:
+  LDA sprites, x
+  STA $0200, x
+  INX
+  CPX #$c0
+  BNE load_sprites_loop
+
 load_background: 
   LDA $2002
   LDA #$20
@@ -114,7 +125,7 @@ load_attributes:
   LDA $2002
   LDA #$23
   STA $2006
-  LDA #$C0
+  LDA #$c0
   STA $2006
   LDX #$00
 
@@ -161,10 +172,78 @@ palettes:
   .byte $0C, $00, $00, $00
 
   ; Sprite Palettes
-  .byte $0C, $06, $02, $1a
+  .byte $0C, $17, $10, $37
   .byte $0C, $20, $2d, $2c
   .byte $0C, $00, $00, $00
   .byte $0C, $00, $00, $00
+
+sprites:
+        ;Y   tile attribute   X
+  .byte $40, $00, %00000000, $58 ;Attribute bits represent: VFlip, HFlip, 
+  .byte $40, $01, %00000000, $60 ;Front or behind background, unused, unused, unused, Pallete bit, Pallete bit
+  .byte $48, $10, %00000000, $58
+  .byte $48, $11, %00000000, $60 ;Standing Sprite
+
+  .byte $50, $02, %00000000, $58 
+  .byte $50, $03, %00000000, $60 
+  .byte $58, $12, %00000000, $58
+  .byte $58, $13, %00000000, $60; Walking 1 Sprite
+
+  .byte $60, $04, %00000000, $58 
+  .byte $60, $05, %00000000, $60 
+  .byte $68, $14, %00000000, $58
+  .byte $68, $15, %00000000, $60 ; Walkiing 2 Srpite
+
+  .byte $70, $06, %00000000, $58 
+  .byte $70, $07, %00000000, $60 
+  .byte $78, $16, %00000000, $58
+  .byte $78, $17, %00000000, $60 ; Walking 3 Sprite
+
+  .byte $80, $08, %00000000, $58 
+  .byte $80, $09, %00000000, $60 
+  .byte $88, $18, %00000000, $58
+  .byte $88, $19, %00000000, $60 ; Jumping Sprite
+
+  .byte $90, $0a, %00000000, $58 
+  .byte $90, $0b, %00000000, $60 
+  .byte $98, $1a, %00000000, $58
+  .byte $98, $1b, %00000000, $60 ; Hurt Sprite
+
+  .byte $40, $00, %01000000, $70 
+  .byte $40, $01, %01000000, $68 
+  .byte $48, $10, %01000000, $70
+  .byte $48, $11, %01000000, $68 ;Standing Sprite (Horizontal Flip)
+
+  .byte $50, $02, %01000000, $70 
+  .byte $50, $03, %01000000, $68 
+  .byte $58, $12, %01000000, $70
+  .byte $58, $13, %01000000, $68; Walking 1 Sprite (Horizontal Flip)
+
+  .byte $60, $04, %01000000, $70 
+  .byte $60, $05, %01000000, $68 
+  .byte $68, $14, %01000000, $70
+  .byte $68, $15, %01000000, $68 ; Walkiing 2 Sprite (Horizontal Flip)
+
+  .byte $70, $06, %01000000, $70 
+  .byte $70, $07, %01000000, $68 
+  .byte $78, $16, %01000000, $70
+  .byte $78, $17, %01000000, $68 ; Walking 3 Sprite (Horizontal Flip)
+
+  .byte $80, $08, %01000000, $70 
+  .byte $80, $09, %01000000, $68 
+  .byte $88, $18, %01000000, $70
+  .byte $88, $19, %01000000, $68 ; Jumping Sprite (Horizontal Flip)
+
+  .byte $90, $0a, %01000000, $70 
+  .byte $90, $0b, %01000000, $68 
+  .byte $98, $1a, %01000000, $70
+  .byte $98, $1b, %01000000, $68 ; Hurt Sprite (Horizontal Flip)
+
+
+
+
+
+
 
 background:
 	.byte $10,$10,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20,$20 ;Background bits, specifying positions similar to first project name bits
