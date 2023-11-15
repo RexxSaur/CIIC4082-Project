@@ -64,6 +64,12 @@ main:
   STA x_pos_p1
   LDA #$ab
   STA y_pos_p1
+  LDA #$00
+  STA clock
+  LDA #$00
+  STA set_walking
+  LDA #$00
+  STA player_dir
 
 
 load_palettes:
@@ -144,10 +150,11 @@ enable_rendering: ;
   lda #%00010000	; Enable Sprites
   sta $2001
 
-forever: 
+forever:
   jmp forever
 
-.proc draw_player
+
+.proc draw_playerR
   PHP
   PHA
   TXA
@@ -155,22 +162,13 @@ forever:
   TYA
   PHA
 
-  LDA #$00
-  STA $0201
-  LDA #$01
-  STA $0205
-  LDA #$10
-  STA $0209
-  LDA #$11
-  STA $020d
-
-  LDA #$00
+  LDA #$00   ;This second batch loads attributes for all the sprites and stores them
   STA $0202
   STA $0206
   STA $020a
   STA $020e
 
-  LDA y_pos_p1
+  LDA y_pos_p1 ; These next batches select the coordinates for each sprite
   STA $0200
   LDA x_pos_p1
   STA $0203
@@ -197,6 +195,57 @@ forever:
   CLC
   ADC #$08
   STA $020f
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+.proc draw_playerL
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDA #%01000000   ;This second batch loads attributes for all the sprites and stores them
+  STA $0202
+  STA $0206
+  STA $020a
+  STA $020e
+
+  LDA y_pos_p1 ; These next batches select the coordinates for each sprite
+  STA $0204
+  LDA x_pos_p1
+  STA $0207
+
+  LDA y_pos_p1
+  STA $0200
+  LDA x_pos_p1
+  CLC
+  ADC #$08
+  STA $0203
+
+  LDA y_pos_p1
+  CLC
+  ADC #$08
+  STA $020c
+  LDA x_pos_p1
+  STA $020f
+
+  LDA y_pos_p1
+  CLC
+  ADC #$08
+  STA $0208
+  LDA x_pos_p1
+  CLC
+  ADC #$08
+  STA $020b
 
   PLA
   TAY
@@ -263,44 +312,381 @@ ReadStartDone:
 ReadUp: 
   LDA $4016       
   AND #%00000001  
-  BEQ ReadUpDone   
+  BEQ ReadUpDone  
   
-
+  
+  
   DEC y_pos_p1
-
+  DEC y_pos_p1
 ReadUpDone: 
 
 ReadDown: 
   LDA $4016       
   AND #%00000001  
-  BEQ ReadDownDone   
+  BEQ ReadDownDone
+
   
 
+  LDA y_pos_p1
+  CMP #$C7
+  BEQ ReadDownDone
+
+  
+
+
   INC y_pos_p1
+  
 
 ReadDownDone: 
 
 ReadLeft: 
   LDA $4016       
   AND #%00000001  
-  BEQ ReadLeftDone   
-  
+  BEQ ReadLeftDone 
+
+  LDA x_pos_p1
+  CMP #$00
+  BEQ ReadLeftDone
 
   DEC x_pos_p1
+  DEC x_pos_p1
+  INC clock
+  lda #$01
+  sta set_walking
+  lda #$01
+  sta player_dir
 
 ReadLeftDone: 
-
+  lda #$00
+  sta set_walking
+  lda #$00
+  sta clock
 ReadRight: 
   LDA $4016       
   AND #%00000001  
-  BEQ ReadRightDone   
-  
+  BEQ ReadRightDone 
+
+  LDA x_pos_p1
+  CMP #$f0
+  BEQ ReadRightDone
+
+
 
   INC x_pos_p1
+  INC x_pos_p1
+  INC clock
+  lda #$01
+  sta set_walking
+  lda #$00
+  sta player_dir
 
 ReadRightDone: 
+  lda #$00
+  sta set_walking
+  lda #$00
+  sta clock
 
 exit_subroutine:
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+
+.endproc
+
+.proc animation_state_machine
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+
+checkFalling:
+  LDA y_pos_p1
+  CMP #$C7
+  BNE jump_animation
+  
+
+checkwalking:
+  lda set_walking
+  CMP #$00
+  BNE donewalking
+  jsr draw_standing_sprite1
+donewalking:
+  jsr walk_loop
+  jmp checkFalling
+
+
+jump_animation:
+  jsr draw_jumping_sprite1
+  
+
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+
+
+
+.proc draw_standing_sprite1
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDA #$00  
+  STA $0201
+  LDA #$01
+  STA $0205
+  LDA #$10
+  STA $0209
+  LDA #$11
+  STA $020d
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+.proc draw_1stwalking_sprite1
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDA #$02  
+  STA $0201
+  LDA #$03
+  STA $0205
+  LDA #$12
+  STA $0209
+  LDA #$13
+  STA $020d
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+.proc draw_2ndwalking_sprite1
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDA #$04  ;This first batch of selects the sprite via tiles and stores them
+  STA $0201
+  LDA #$04
+  STA $0205
+  LDA #$14
+  STA $0209
+  LDA #$15
+  STA $020d
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+.proc draw_3rdwalking_sprite1
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDA #$06  
+  STA $0201
+  LDA #$07
+  STA $0205
+  LDA #$16
+  STA $0209
+  LDA #$17
+  STA $020d
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+.proc draw_jumping_sprite1
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDA #$08  
+  STA $0201
+  LDA #$09
+  STA $0205
+  LDA #$18
+  STA $0209
+  LDA #$19
+  STA $020d
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+.proc draw_hurt_sprite1
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDA #$0a  
+  STA $0201
+  LDA #$0b
+  STA $0205
+  LDA #$1a
+  STA $0209
+  LDA #$1b
+  STA $020d
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+.proc draw_killed_sprite1
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDA #$0c  
+  STA $0201
+  LDA #$0d
+  STA $0205
+  LDA #$1c
+  STA $0209
+  LDA #$1d
+  STA $020d
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+.proc gravity
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDA y_pos_p1
+  CMP #$C7
+  BEQ exit
+
+
+  LDA x_pos_p1
+  CMP #$68      
+  BCC CheckPlattform 
+
+  LDA x_pos_p1   
+  CMP #$98    
+  BCS CheckPlattform 
+
+  LDA y_pos_p1  
+  CMP #$ab   
+  BEQ exit 
+
+
+CheckPlattform:
+  INC y_pos_p1 
+
+exit:
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+.proc walk_loop
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  lda clock
+  CMP #$10
+  bcc drawwalk1
+  CMP #$20
+  bcc drawwalk2
+  CMP #$30
+  bcc drawwalk3
+
+  drawwalk1:
+  jsr draw_1stwalking_sprite1
+  jmp exitwalk
+drawwalk2:
+  jsr draw_2ndwalking_sprite1
+  jmp exitwalk
+drawwalk3:
+  jsr draw_3rdwalking_sprite1
+
+
+exitwalk:
   PLA
   TAY
   PLA
@@ -319,14 +705,26 @@ nmi:      ;Specifies interruptions for the rendering loops
   LDA #$02
   STA $4014
 
-
+  lda player_dir
+  CMP #$00
+  BEQ draw_player_right
+  jsr draw_playerL    ;Uses variables in zero page RAM to draw character on screen
+  jmp drawplayerleftdone
+  draw_player_right:
+    jsr draw_playerR
+drawplayerleftdone:
   jsr update_player  ;Jump to subroutine that scans button presses to change sprite coordinates in zero page RAM
-  jsr draw_player    ;Uses variables in zero page RAM to draw character on screen
+  jsr gravity
+  jsr animation_state_machine
+  
+  
+
 
 	LDA #$00
 	STA $2005
 	STA $2005
-  INC $01
+
+  
 
 
   LDA #%10010000  ;Turn on NMI's, makes sure sprites use 1st pattern table to render
@@ -336,11 +734,9 @@ nmi:      ;Specifies interruptions for the rendering loops
 
 
   
-  
-
-  ; jmp update_sprites
-  
   RTI
+
+
 
 
 
@@ -507,6 +903,9 @@ attributes:
 .segment "ZEROPAGE"
   x_pos_p1: .res 1 ;Initializes player x position in Zero page RAM
   y_pos_p1: .res 1 ;Initializes player y position in Zero page RAM
+  clock: .res 1
+  set_walking: .res 1
+  player_dir: .res 1
 
 .segment "CHARS" ;Import Spritesheets
 .incbin "wars.chr" ;Spritesheets generated by NEXXT
