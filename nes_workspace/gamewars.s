@@ -77,17 +77,18 @@ main:
   STA x_temporary_p1
   LDA #$00 ;Ram Addr 000B
   STA player_hurt
-
-  
   LDA #$00 ;Ram Addr 000C
   STA player_dead
-  LDA #$04 ;Ram Addr 000E
+  LDA #$03 ;Ram Addr 000E
   STA player1_HP
-
-  ; LDA #$00 ;Ram Addr 0009
-  ; STA player_fall
-  ; LDA #$00 ;Ram Addr 000A
-  ; STA player_jump
+  LDA #$00 ;Ram Addr 0009
+  STA player_height
+  LDA #$00 ;Ram Addr 000A
+  STA player_jump
+  ;LDA #$A0
+  ;STA heart_x_pos
+  ;LDA #$A0
+  ;STA heart_y_pos
   ; LDA #$00 ;Ram Addr 000D
   ; STA player_attack
   
@@ -297,7 +298,7 @@ update_seconds:
   LDA #$00
   STA timer
   LDA x_pos_p1
-  STA x_temporary_p1  
+  STA x_temporary_p1 
 
 
 LatchController: ;Tells First controller to check button status
@@ -313,7 +314,7 @@ ReadA:
   LDA $4016       ; First we check button A
   AND #%00000001  ; We only check the first bit (0) since we need the most recent press
   BEQ ReadADone   ; if button wasn't pressed, branch to next scan 
-                   ; Otherwise, execute instructions here
+                  ; Otherwise, execute instructions here
   LDA #$01
   STA player_hurt
   
@@ -352,16 +353,28 @@ ReadStart:
 ReadStartDone:     
 
 ReadUp: 
+  LDA player1_HP        ; Load player HP
+  CMP #$00
+  BEQ ReadUpDone
+
   LDA $4016       
   AND #%00000001  
   BEQ ReadUpDone  
   
-  
+  LDA height
+  CMP #$30
+  BEQ ReadUpDone 
+
+  INC height
   DEC y_pos_p1
   DEC y_pos_p1
 ReadUpDone: 
 
 ReadDown: 
+  LDA player1_HP        ; Load player HP
+  CMP #$00
+  BEQ ReadDownDone
+
   LDA $4016       
   AND #%00000001  
   BEQ ReadDownDone
@@ -380,6 +393,10 @@ ReadDown:
 ReadDownDone: 
 
 ReadLeft: 
+  LDA player1_HP        ; Load player HP
+  CMP #$00
+  BEQ ReadLeftDone
+
   LDA $4016       
   AND #%00000001  
   BEQ ReadLeftDone 
@@ -398,6 +415,10 @@ ReadLeftDone:
   jsr draw_standing_sprite1
 
 ReadRight: 
+  LDA player1_HP        ; Load player HP
+  CMP #$00
+  BEQ ReadRightDone
+
   LDA $4016       
   AND #%00000001  
   BEQ ReadRightDone 
@@ -439,6 +460,10 @@ exit_subroutine:
 
 checkFalling:
 
+  LDA player1_HP        ; Load player HP
+  CMP #$00
+  BEQ dead_animation
+
   LDA player_hurt
   CMP #$01
   BEQ hurt_animation
@@ -465,7 +490,6 @@ standing_idle:
 
 hurt_animation:
   jsr draw_hurt_sprite1
-  
 
 jump_animation:
   LDA player_hurt
@@ -473,7 +497,12 @@ jump_animation:
   BNE hurt_animation
 
   jsr draw_jumping_sprite1
+  jmp finished
 
+dead_animation:
+  jsr draw_killed_sprite1
+
+finished:
   PLA
   TAY
   PLA
@@ -483,6 +512,46 @@ jump_animation:
   RTS
 .endproc
 
+.proc handle_player_hurt
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDA player1_HP        ; Load player HP
+  CMP #$00              ; Compare with 0
+  BEQ Done   ; If equal (dead), skip HP decrease
+
+  LDA player_hurt       ; Load the current hurt status
+  CMP #$00              ; Compare with 0
+  BEQ NotHurt           ; If equal (not hurt), skip HP decrease
+
+  LDA last_frame_hurt   ; Check if player was hurt in the last frame
+  CMP #$01              ; Compare with 1
+  BEQ AlreadyProcessed  ; If equal (already processed), skip HP decrease
+
+  ; Decrease HP here
+  DEC player1_HP
+  LDA #$01
+  STA last_frame_hurt   ; Set last_frame_hurt to true
+  JMP Done
+
+NotHurt:
+  LDA #$00
+  STA last_frame_hurt   ; Reset last_frame_hurt flag
+
+AlreadyProcessed:
+Done:
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS 
+.endproc
 
 
 
@@ -678,7 +747,7 @@ jump_animation:
 
   LDA y_pos_p1
   CMP #$C7
-  BEQ exit
+  BEQ floor
 
 
   LDA x_pos_p1
@@ -691,13 +760,19 @@ jump_animation:
 
   LDA y_pos_p1  
   CMP #$ab   
-  BEQ exit 
+  BEQ floor 
 
 
 CheckPlattform:
   INC y_pos_p1 
+  jmp exit
+
+floor:
+  LDA #$00
+  STA height
 
 exit:
+
   PLA
   TAY
   PLA
@@ -769,7 +844,36 @@ exitwalk:
   RTS
 .endproc
 
+.proc jump_height
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
 
+  lda height
+  CMP #$10
+  bcc goingUp
+  CMP #$20
+  bcc goingUp
+  CMP #$30
+  
+  
+  jmp exitJump
+
+  goingUp:
+    INC height
+
+exitJump:
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
 
 
 nmi:      ;Specifies interruptions for the rendering loops
@@ -777,6 +881,8 @@ nmi:      ;Specifies interruptions for the rendering loops
   STA $2003
   LDA #$02
   STA $4014
+
+  jsr handle_player_hurt
 
   lda player_dir
   CMP #$00
@@ -789,7 +895,6 @@ drawplayerleftdone:
   jsr update_player  ;Jump to subroutine that scans button presses to change sprite coordinates in zero page RAM
   jsr gravity
   jsr animation_state_machine
-  
   
 
 
@@ -920,9 +1025,12 @@ attributes:
   player_hurt: .res 1
   player_dead: .res 1
   player1_HP: .res 1
+  last_frame_hurt: .res 1 ; Flag to track if player was hurt last frame
+ ; heart_x_pos: .res 1
+ ; heart_y_pos: .res 1
 
-  ; player_fall: .res 1
-  ; player_jump: .res 1
+  player_height: .res 1
+  player_jump: .res 1
   ; player_attack: .res 1
   ; player2_HP: .res 1
   ; player2_dir: .res 1
