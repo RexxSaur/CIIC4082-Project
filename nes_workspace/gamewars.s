@@ -68,29 +68,29 @@ main:
   STA clock
   LDA #$00
   STA player_dir
-  
   LDA #$00
   STA timer
   LDA #$00
   STA seconds
   LDA #$00
   STA x_temporary_p1
-  LDA #$00 ;Ram Addr 000B
+  LDA #$00
   STA player_hurt
-  LDA #$00 ;Ram Addr 000C
+  LDA #$00
   STA player_dead
-  LDA #$03 ;Ram Addr 000E
+  LDA #$03
   STA player1_HP
-  LDA #$00 ;Ram Addr 0009
+  LDA #$00
   STA player_height
-  LDA #$00 ;Ram Addr 000A
+  LDA #$00
   STA player_jump
-  ;LDA #$A0
-  ;STA heart_x_pos
-  ;LDA #$A0
-  ;STA heart_y_pos
-  ; LDA #$00 ;Ram Addr 000D
-  ; STA player_attack
+  LDA #$10
+
+  STA heart_x_pos
+  LDA #$10
+  STA heart_y_pos
+  LDA #$00 ;Ram Addr 000D
+  STA player_attack
   
 
 
@@ -285,9 +285,8 @@ forever:
   TYA
   PHA
 
-
+  jsr draw_HP
   INC timer ; Game timer runnning in Ram
-
   LDA timer
   CMP #$3A
   BEQ update_seconds
@@ -321,7 +320,6 @@ ReadA:
 
 skipReadAdone:
   jmp ReadB
-
 ReadADone:        ; Scan for this button is done, go to the next, repeat for every button
   LDA #$00
   STA player_hurt
@@ -329,10 +327,16 @@ ReadADone:        ; Scan for this button is done, go to the next, repeat for eve
 ReadB: 
   LDA $4016       
   AND #%00000001  
-  BEQ ReadBDone   
-                  
-  
+  BEQ ReadBDone
+
+  LDA #$01
+  STA player_attack               
+
+skipReadBdone:
+  jmp ReadSelect
 ReadBDone:        
+  LDA #$00
+  STA player_attack
 
 ReadSelect: 
   LDA $4016       
@@ -467,7 +471,10 @@ checkFalling:
   LDA player_hurt
   CMP #$01
   BEQ hurt_animation
-
+  LDA player_attack
+  CMP #$01
+  BEQ attack_animation
+  
   LDA y_pos_p1
   CMP #$ab
   BEQ donewalking
@@ -488,6 +495,9 @@ standing_idle:
   jsr draw_standing_sprite1
   jmp checkFalling
 
+attack_animation:
+  jsr draw_attack_sprite1
+  jmp finished
 hurt_animation:
   jsr draw_hurt_sprite1
 
@@ -501,6 +511,7 @@ jump_animation:
 
 dead_animation:
   jsr draw_killed_sprite1
+  jsr draw_win_P2
 
 finished:
   PLA
@@ -553,7 +564,138 @@ Done:
   RTS 
 .endproc
 
+.proc draw_HP
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
 
+  LDA player1_HP
+  CMP #$00
+  BEQ reduce3
+  
+  LDA #$10    ; Y position
+  STA $0210   ; Assuming $0200 is the start of the next free OAM slot
+  LDA #$20    ; Tile number for health
+  STA $0211
+  LDA #%00000000  ; Attributes (adjust as needed)
+  STA $0212
+  LDA #$10    ; X position
+  STA $0213
+
+  LDA player1_HP
+  CMP #$01
+  BEQ reduce2
+
+  LDA #$10    ; Y position
+  STA $0214   ; Assuming $0200 is the start of the next free OAM slot
+  LDA #$20    ; Tile number for health
+  STA $0215
+  LDA #%00000000  ; Attributes (adjust as needed)
+  STA $0216
+  LDA #$20    ; X position
+  STA $0217
+
+  LDA player1_HP
+  CMP #$02
+  BEQ reduce1
+
+  LDA #$10    ; Y position
+  STA $0218   ; Assuming $0200 is the start of the next free OAM slot
+  LDA #$20    ; Tile number for health
+  STA $0219
+  LDA #%00000000  ; Attributes (adjust as needed)
+  STA $021a
+  LDA #$30    ; X position
+  STA $021b
+
+  jmp leave
+
+  reduce3:
+    LDA #$30
+    STA $0211
+    jmp leave
+  reduce2:
+    LDA #$30
+    STA $0215
+    jmp leave
+  reduce1:
+    LDA #$30
+    STA $0219
+    jmp leave
+leave:
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS 
+.endproc
+
+.proc draw_win_P2
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDA #$7d    ; Y position
+  STA $0220   ; Assuming $0200 is the start of the next free OAM slot
+  LDA #$28    ; Tile number for health
+  STA $0221
+  LDA #%00000001  ; Attributes (adjust as needed)
+  STA $0222
+  LDA #$50    ; X position
+  STA $0223
+
+  LDA #$7d    ; Y position
+  STA $0224   ; Assuming $0200 is the start of the next free OAM slot
+  LDA #$24    ; Tile number for health
+  STA $0225
+  LDA #%00000001  ; Attributes (adjust as needed)
+  STA $0226
+  LDA #$60    ; X position
+  STA $0227
+
+  LDA #$7d    ; Y position
+  STA $0228   ; Assuming $0200 is the start of the next free OAM slot
+  LDA #$25    ; Tile number for health
+  STA $0229
+  LDA #%00000001  ; Attributes (adjust as needed)
+  STA $022a
+  LDA #$80    ; X position
+  STA $022b
+
+  LDA #$7d    ; Y position
+  STA $022c   ; Assuming $0200 is the start of the next free OAM slot
+  LDA #$26    ; Tile number for health
+  STA $022d
+  LDA #%00000001  ; Attributes (adjust as needed)
+  STA $022e
+  LDA #$90    ; X position
+  STA $022f
+
+  LDA #$7d    ; Y position
+  STA $0230   ; Assuming $0200 is the start of the next free OAM slot
+  LDA #$27    ; Tile number for health
+  STA $0231
+  LDA #%00000001  ; Attributes (adjust as needed)
+  STA $0232
+  LDA #$A0    ; X position
+  STA $0233
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
 
 .proc draw_standing_sprite1
   PHP
@@ -674,6 +816,32 @@ Done:
   LDA #$18
   STA $0209
   LDA #$19
+  STA $020d
+
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+.endproc
+
+.proc draw_attack_sprite1
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+  LDA #$0e  
+  STA $0201
+  LDA #$0f
+  STA $0205
+  LDA #$1e
+  STA $0209
+  LDA #$1f
   STA $020d
 
   PLA
@@ -895,9 +1063,6 @@ drawplayerleftdone:
   jsr update_player  ;Jump to subroutine that scans button presses to change sprite coordinates in zero page RAM
   jsr gravity
   jsr animation_state_machine
-  
-
-
 	LDA #$00
 	STA $2005
 	STA $2005
@@ -929,6 +1094,13 @@ palettes:
   .byte $0C, $20, $2d, $2c
   .byte $0C, $2d, $21, $31
   .byte $0C, $00, $00, $00
+
+
+
+hp1:
+        ;Y   tile attribute   X
+  .byte $10, $20, %00000000, $10 ;Attribute bits represent: VFlip, HFlip, 
+  ;Front or behind background, unused, unused, unused, Pallete bit, Pallete bit
 
 background:
 	.byte $00,$00,$0a,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
@@ -1026,12 +1198,12 @@ attributes:
   player_dead: .res 1
   player1_HP: .res 1
   last_frame_hurt: .res 1 ; Flag to track if player was hurt last frame
- ; heart_x_pos: .res 1
- ; heart_y_pos: .res 1
-
+  heart_x_pos: .res 1
+  heart_y_pos: .res 1
   player_height: .res 1
   player_jump: .res 1
-  ; player_attack: .res 1
+
+  player_attack: .res 1
   ; player2_HP: .res 1
   ; player2_dir: .res 1
   ; player2_fall: .res 1
