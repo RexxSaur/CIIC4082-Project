@@ -1,5 +1,4 @@
 ;Diego Luis Ignacio Rodriguez Quintero
-;Jeanpaul Marrero Serrano
 .segment "HEADER"
   ; .byte "NES", $1A      ; iNES header identifier
   .byte $4E, $45, $53, $1A
@@ -60,12 +59,12 @@ vblankwait2:
 
 main:
 
-;Variables for p1
+
   LDA #$30
   STA x_pos_p1
   LDA #$c0
   STA y_pos_p1
-  LDA #$00 
+  LDA #$00 ;Ram Addr 0006
   STA clock
   LDA #$00
   STA player1_dir
@@ -82,32 +81,21 @@ main:
   LDA #$03
   STA player1_HP
   LDA #$00
+  STA player_height
+  LDA #$00
+  STA player_jump
+  LDA #$10
+  STA heart_x_pos
+  LDA #$10
+  STA heart_y_pos
+  LDA #$00 ;Ram Addr 000D
   STA player_attack
-
-;Variables for p2
-  LDA #$cf
+  LDA #$3f
   STA x_pos_p2
-  LDA #$c0
+  LDA #$cf
   STA y_pos_p2
-  LDA #$00
-  STA clock2
-  LDA #$01
-  STA player2_dir
-  LDA #$00
-  STA x_temporary_p2
-  LDA #$00
-  STA player2_hurt
-  LDA #$00
-  STA player2_dead
-  LDA #$03
-  STA player2_HP
-  LDA #$00
-  STA player2_attack
-  LDA #$4f
 
-  LDA #$00
-  STA frame_turn
-
+  
 
 
 load_palettes:
@@ -191,7 +179,7 @@ enable_rendering: ;
 forever:
   jmp forever
 
-.proc draw_player1R
+.proc draw_playerR
   PHP
   PHA
   TXA
@@ -242,7 +230,7 @@ forever:
   RTS
 .endproc
 
-.proc draw_player1L
+.proc draw_playerL
   PHP
   PHA
   TXA
@@ -293,30 +281,16 @@ forever:
   RTS
 .endproc
 
-.proc update_players
+.proc update_player
   PHP
   PHA
   TXA
   PHA
   TYA
   PHA
-  
 
-  
   jsr draw_HP
-  jsr draw_HP2
   INC timer ; Game timer runnning in Ram
-  INC frame_turn
-
-  LDA frame_turn
-  CMP #$02
-  BEQ reset_frame_turn
-  jmp LatchController
-
-reset_frame_turn:
-  LDA #$00
-  STA frame_turn
-
   LDA timer
   CMP #$3A
   BEQ update_seconds
@@ -327,9 +301,7 @@ update_seconds:
   LDA #$00
   STA timer
   LDA x_pos_p1
-  STA x_temporary_p1
-  LDA x_pos_p2
-  STA x_temporary_p2 
+  STA x_temporary_p1 
 
 
 LatchController: ;Tells First controller to check button status
@@ -338,12 +310,6 @@ LatchController: ;Tells First controller to check button status
   
   LDA #$00
   STA $4016    
-
-LatchController2: ;Tells First controller to check button status
-  LDA #$01
-  STA $4017
-  LDA #$00
-  STA $4017
 
 ; Now, we iteratively check each button in the following order:
 ; A, B, Select, Start, Up, Down, Left, Right.
@@ -406,7 +372,7 @@ ReadUp:
   
   LDA height
   CMP #$30
-  BEQ ReadUpDone
+  BEQ ReadUpDone 
 
   INC height
   DEC y_pos_p1
@@ -420,11 +386,15 @@ ReadDown:
 
   LDA $4016       
   AND #%00000001  
-  BEQ ReadDownDone 
+  BEQ ReadDownDone
+
   
   LDA y_pos_p1
   CMP #$C7
   BEQ ReadDownDone
+
+  
+
 
   INC y_pos_p1
   
@@ -435,7 +405,6 @@ ReadLeft:
   LDA player1_HP        ; Load player HP
   CMP #$00
   BEQ ReadLeftDone
-  
 
   LDA $4016       
   AND #%00000001  
@@ -452,6 +421,7 @@ ReadLeft:
   sta player1_dir
 
 ReadLeftDone:
+  jsr draw_standing_sprite1
 
 ReadRight: 
   LDA player1_HP        ; Load player HP
@@ -475,6 +445,40 @@ ReadRight:
   sta player1_dir
 
 ReadRightDone:
+  jsr draw_standing_sprite1
+
+exit_subroutine:
+  PLA
+  TAY
+  PLA
+  TAX
+  PLA
+  PLP
+  RTS
+
+.endproc
+
+
+
+.proc update_player2
+  PHP
+  PHA
+  TXA
+  PHA
+  TYA
+  PHA
+
+
+
+
+LatchController2: ;Tells First controller to check button status
+  LDA #$01
+  STA $4017
+  LDA #$00
+  STA $4017       
+
+; Now, we iteratively check each button in the following order:
+; A, B, Select, Start, Up, Down, Left, Right.
 
 ReadA2: 
   LDA $4017       ; First we check button A
@@ -482,14 +486,14 @@ ReadA2:
   BEQ ReadA2Done   ; if button wasn't pressed, branch to next scan 
                   ; Otherwise, execute instructions here
   LDA #$01
-  STA player2_hurt
+  STA player_hurt
   
 
 skipReadA2done:
   jmp ReadB2
 ReadA2Done:        ; Scan for this button is done, go to the next, repeat for every button
   LDA #$00
-  STA player2_hurt
+  STA player_hurt
 
 
 ReadB2: 
@@ -498,13 +502,13 @@ ReadB2:
   BEQ ReadB2Done
 
   LDA #$01
-  STA player2_attack               
+  STA player_attack               
 
 skipReadB2done:
   jmp ReadSelect2
 ReadB2Done:        
   LDA #$00
-  STA player2_attack
+  STA player_attack
 
 ReadSelect2: 
   LDA $4017       
@@ -525,7 +529,7 @@ ReadStart2:
 ReadStart2Done:     
 
 ReadUp2: 
-  LDA player2_HP        ; Load player HP
+  LDA player1_HP        ; Load player HP
   CMP #$00
   BEQ ReadUp2Done
 
@@ -533,35 +537,39 @@ ReadUp2:
   AND #%00000001  
   BEQ ReadUp2Done  
   
-  LDA height2
+  LDA height
   CMP #$30
   BEQ ReadUp2Done 
 
-  INC height2
-  DEC y_pos_p2
-  DEC y_pos_p2
+  INC height
+  DEC y_pos_p1
+  DEC y_pos_p1
 ReadUp2Done: 
 
 ReadDown2: 
-  LDA player2_HP        ; Load player HP
+  LDA player1_HP        ; Load player HP
   CMP #$00
   BEQ ReadDown2Done
 
   LDA $4017       
   AND #%00000001  
   BEQ ReadDown2Done
+
   
-  LDA y_pos_p2
+  LDA y_pos_p1
   CMP #$C7
   BEQ ReadDown2Done
 
-  INC y_pos_p2
+  
+
+
+  INC y_pos_p1
   
 
 ReadDown2Done: 
 
 ReadLeft2: 
-  LDA player2_HP        ; Load player HP
+  LDA player1_HP        ; Load player HP
   CMP #$00
   BEQ ReadLeft2Done
 
@@ -569,22 +577,21 @@ ReadLeft2:
   AND #%00000001  
   BEQ ReadLeft2Done 
 
-  LDA x_pos_p2
-  CMP #$02
-  BCC ReadLeft2Done
+  LDA x_pos_p1
+  CMP #$00
+  BEQ ReadLeft2Done
 
-  DEC x_pos_p2
-  DEC x_pos_p2
-  INC clock2
+  DEC x_pos_p1
+  DEC x_pos_p1
+  INC clock
   lda #$01
-  sta player2_dir
-;stop:
-  ;INC x_pos_p2
-  ;INC x_pos_p2
+  sta player1_dir
+
 ReadLeft2Done:
+  jsr draw_standing_sprite1
 
 ReadRight2: 
-  LDA player2_HP        ; Load player HP
+  LDA player1_HP        ; Load player HP
   CMP #$00
   BEQ ReadRight2Done
 
@@ -592,21 +599,22 @@ ReadRight2:
   AND #%00000001  
   BEQ ReadRight2Done 
 
-  LDA x_pos_p2
-  CMP #$ef
-  BCS ReadRight2Done
+  LDA x_pos_p1
+  CMP #$f0
+  BEQ ReadRight2Done
 
 
 
-  INC x_pos_p2
-  INC x_pos_p2
-  INC clock2
+  INC x_pos_p1
+  INC x_pos_p1
+  INC clock
   lda #$00
-  sta player2_dir
+  sta player1_dir
 
 ReadRight2Done:
+  jsr draw_standing_sprite1
 
-exit_subroutine:
+exit_subroutin:
   PLA
   TAY
   PLA
@@ -615,117 +623,6 @@ exit_subroutine:
   PLP
   RTS
 
-.endproc
-
-.proc draw_player2R
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-  LDA #$00  
-  STA $0241
-  LDA #$01
-  STA $0245
-  LDA #$10
-  STA $0249
-  LDA #$11
-  STA $024d
-
-  LDA #$01   ;This second batch loads attributes for all the sprites and stores them
-  STA $0242
-  STA $0246
-  STA $024a
-  STA $024e
-
-  LDA y_pos_p2 ; These next batches select the coordinates for each sprite
-  STA $0240
-  LDA x_pos_p2
-  STA $0243
-
-  LDA y_pos_p2
-  STA $0244
-  LDA x_pos_p2
-  CLC
-  ADC #$08
-  STA $0247
-
-  LDA y_pos_p2
-  CLC
-  ADC #$08
-  STA $0248
-  LDA x_pos_p2
-  STA $024b
-
-  LDA y_pos_p2
-  CLC
-  ADC #$08
-  STA $024c
-  LDA x_pos_p2
-  CLC
-  ADC #$08
-  STA $024f
-
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS
-.endproc
-
-.proc draw_player2L
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-  LDA #%01000001   ;This second batch loads attributes for all the sprites and stores them
-  STA $0242
-  STA $0246
-  STA $024a
-  STA $024e
-
-  LDA y_pos_p2 ; These next batches select the coordinates for each sprite
-  STA $0244
-  LDA x_pos_p2
-  STA $0247
-
-  LDA y_pos_p2
-  STA $0240
-  LDA x_pos_p2
-  CLC
-  ADC #$08
-  STA $0243
-
-  LDA y_pos_p2
-  CLC
-  ADC #$08
-  STA $024c
-  LDA x_pos_p2
-  STA $024f
-
-  LDA y_pos_p2
-  CLC
-  ADC #$08
-  STA $0248
-  LDA x_pos_p2
-  CLC
-  ADC #$08
-  STA $024b
-
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS
 .endproc
 
 .proc animation_state_machine
@@ -736,10 +633,8 @@ exit_subroutine:
   TYA
   PHA
 
+
 checkFalling:
-  LDA frame_turn
-  CMP #$01
-  BEQ finished
 
   LDA player1_HP        ; Load player HP
   CMP #$00
@@ -772,6 +667,9 @@ standing_idle:
   jsr draw_standing_sprite1
   jmp checkFalling
 
+attack_animation:
+  jsr draw_attack_sprite1
+  jmp finished
 hurt_animation:
   jsr draw_hurt_sprite1
 
@@ -783,89 +681,11 @@ jump_animation:
   jsr draw_jumping_sprite1
   jmp finished
 
-attack_animation:
-  jsr draw_attack_sprite1
-  jmp finished
-
 dead_animation:
   jsr draw_killed_sprite1
   jsr draw_win_P2
 
 finished:
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS
-.endproc
-
-.proc animation_state_machine2
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-
-checkFalling2:
-  LDA frame_turn
-  CMP #$00
-  BEQ finished2
-
-  LDA player2_HP        ; Load player HP
-  CMP #$00
-  BEQ dead_animation2
-
-  LDA player2_hurt
-  CMP #$01
-  BEQ hurt_animation2
-  LDA player2_attack
-  CMP #$01
-  BEQ attack_animation2
-  
-  LDA y_pos_p2
-  CMP #$ab
-  BEQ donewalking2
-
-  LDA y_pos_p2
-  CMP #$C7
-  BNE jump_animation2
-
-donewalking2:
-  LDA x_temporary_p2
-  CMP x_pos_p2
-  BEQ standing_idle2
-
-  jsr walk_loop2
-  jmp checkFalling2
-
-standing_idle2:
-  jsr draw_standing_sprite2
-  jmp checkFalling2
-
-hurt_animation2:
-  jsr draw_hurt_sprite2
-
-jump_animation2:
-  LDA player2_hurt
-  CMP #$00
-  BNE hurt_animation2
-
-  jsr draw_jumping_sprite2
-  jmp finished2
-
-attack_animation2:
-  jsr draw_attack_sprite2
-  jmp finished2
-
-dead_animation2:
-  jsr draw_killed_sprite2
-  jsr draw_win_P1
-
-finished2:
   PLA
   TAY
   PLA
@@ -888,22 +708,22 @@ finished2:
   BEQ Done   ; If equal (dead), skip HP decrease
 
   LDA player_hurt       ; Load the current hurt status
-  CMP #$00             
-  BEQ NotHurt           
+  CMP #$00              ; Compare with 0
+  BEQ NotHurt           ; If equal (not hurt), skip HP decrease
 
-  LDA last_frame_hurt   
-  CMP #$01              
-  BEQ AlreadyProcessed 
+  LDA last_frame_hurt   ; Check if player was hurt in the last frame
+  CMP #$01              ; Compare with 1
+  BEQ AlreadyProcessed  ; If equal (already processed), skip HP decrease
 
   ; Decrease HP here
   DEC player1_HP
   LDA #$01
-  STA last_frame_hurt 
+  STA last_frame_hurt   ; Set last_frame_hurt to true
   JMP Done
 
 NotHurt:
   LDA #$00
-  STA last_frame_hurt 
+  STA last_frame_hurt   ; Reset last_frame_hurt flag
 
 AlreadyProcessed:
 Done:
@@ -915,48 +735,6 @@ Done:
   PLP
   RTS 
 .endproc
-
-.proc handle_player_hurt2
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-  LDA player2_HP        ; Load player HP
-  CMP #$00              ; Compare with 0
-  BEQ Done2   ; If equal (dead), skip HP decrease
-
-  LDA player2_hurt       ; Load the current hurt status
-  CMP #$00              ; Compare with 0
-  BEQ NotHurt2           ; If equal (not hurt), skip HP decrease
-
-  LDA last_frame_hurt2   ; Check if player was hurt in the last frame
-  CMP #$01              ; Compare with 1
-  BEQ AlreadyProcessed2  ; If equal (already processed), skip HP decrease
-
-  ; Decrease HP here
-  DEC player2_HP
-  LDA #$01
-  STA last_frame_hurt2   ; Set last_frame_hurt to true
-  JMP Done2
-
-NotHurt2:
-  LDA #$00
-  STA last_frame_hurt2   ; Reset last_frame_hurt flag
-
-AlreadyProcessed2:
-Done2:
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS 
-.endproc
-
 
 .proc draw_HP
   PHP
@@ -1029,77 +807,6 @@ leave:
   RTS 
 .endproc
 
-.proc draw_HP2
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-  LDA player2_HP
-  CMP #$00
-  BEQ reduce3P2
-  
-  LDA #$10    ; Y position
-  STA $0260   ; Assuming $0200 is the start of the next free OAM slot
-  LDA #$20    ; Tile number for health
-  STA $0261
-  LDA #%00000001  ; Attributes (adjust as needed)
-  STA $0262
-  LDA #$D0    ; X position
-  STA $0263
-
-  LDA player2_HP
-  CMP #$01
-  BEQ reduce2P2
-
-  LDA #$10    ; Y position
-  STA $0264   ; Assuming $0200 is the start of the next free OAM slot
-  LDA #$20    ; Tile number for health
-  STA $0265
-  LDA #%00000001  ; Attributes (adjust as needed)
-  STA $0266
-  LDA #$E0    ; X position
-  STA $0267
-
-  LDA player2_HP
-  CMP #$02
-  BEQ reduce1P2
-
-  LDA #$10    ; Y position
-  STA $0268   ; Assuming $0200 is the start of the next free OAM slot
-  LDA #$20    ; Tile number for health
-  STA $0269
-  LDA #%00000001  ; Attributes (adjust as needed)
-  STA $026a
-  LDA #$F0    ; X position
-  STA $026b
-
-  jmp leave2
-
-  reduce3P2:
-    LDA #$30
-    STA $0261
-    jmp leave2
-  reduce2P2:
-    LDA #$30
-    STA $0265
-    jmp leave2
-  reduce1P2:
-    LDA #$30
-    STA $0269
-    jmp leave2
-leave2:
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS 
-.endproc
-
 .proc draw_win_P2
   PHP
   PHA
@@ -1112,7 +819,7 @@ leave2:
   STA $0220   ; Assuming $0200 is the start of the next free OAM slot
   LDA #$28    ; Tile number for health
   STA $0221
-  LDA #%00000010  ; Attributes (adjust as needed)
+  LDA #%00000001  ; Attributes (adjust as needed)
   STA $0222
   LDA #$50    ; X position
   STA $0223
@@ -1121,7 +828,7 @@ leave2:
   STA $0224   ; Assuming $0200 is the start of the next free OAM slot
   LDA #$24    ; Tile number for health
   STA $0225
-  LDA #%00000010  ; Attributes (adjust as needed)
+  LDA #%00000001  ; Attributes (adjust as needed)
   STA $0226
   LDA #$60    ; X position
   STA $0227
@@ -1130,7 +837,7 @@ leave2:
   STA $0228   ; Assuming $0200 is the start of the next free OAM slot
   LDA #$25    ; Tile number for health
   STA $0229
-  LDA #%00000010  ; Attributes (adjust as needed)
+  LDA #%00000001  ; Attributes (adjust as needed)
   STA $022a
   LDA #$80    ; X position
   STA $022b
@@ -1139,7 +846,7 @@ leave2:
   STA $022c   ; Assuming $0200 is the start of the next free OAM slot
   LDA #$26    ; Tile number for health
   STA $022d
-  LDA #%00000010  ; Attributes (adjust as needed)
+  LDA #%00000001  ; Attributes (adjust as needed)
   STA $022e
   LDA #$90    ; X position
   STA $022f
@@ -1148,7 +855,7 @@ leave2:
   STA $0230   ; Assuming $0200 is the start of the next free OAM slot
   LDA #$27    ; Tile number for health
   STA $0231
-  LDA #%00000010  ; Attributes (adjust as needed)
+  LDA #%00000001  ; Attributes (adjust as needed)
   STA $0232
   LDA #$A0    ; X position
   STA $0233
@@ -1162,69 +869,6 @@ leave2:
   RTS
 .endproc
 
-.proc draw_win_P1
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-  LDA #$7d    ; Y position
-  STA $0220   ; Assuming $0200 is the start of the next free OAM slot
-  LDA #$28    ; Tile number for health
-  STA $0221
-  LDA #%00000010  ; Attributes (adjust as needed)
-  STA $0222
-  LDA #$50    ; X position
-  STA $0223
-
-  LDA #$7d    ; Y position
-  STA $0224   ; Assuming $0200 is the start of the next free OAM slot
-  LDA #$23    ; Tile number for health
-  STA $0225
-  LDA #%00000010  ; Attributes (adjust as needed)
-  STA $0226
-  LDA #$60    ; X position
-  STA $0227
-
-  LDA #$7d    ; Y position
-  STA $0228   ; Assuming $0200 is the start of the next free OAM slot
-  LDA #$25    ; Tile number for health
-  STA $0229
-  LDA #%00000010  ; Attributes (adjust as needed)
-  STA $022a
-  LDA #$80    ; X position
-  STA $022b
-
-  LDA #$7d    ; Y position
-  STA $022c   ; Assuming $0200 is the start of the next free OAM slot
-  LDA #$26    ; Tile number for health
-  STA $022d
-  LDA #%00000010  ; Attributes (adjust as needed)
-  STA $022e
-  LDA #$90    ; X position
-  STA $022f
-
-  LDA #$7d    ; Y position
-  STA $0230   ; Assuming $0200 is the start of the next free OAM slot
-  LDA #$27    ; Tile number for health
-  STA $0231
-  LDA #%00000010  ; Attributes (adjust as needed)
-  STA $0232
-  LDA #$A0    ; X position
-  STA $0233
-
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS
-.endproc
-
-;Sprite tile assignment for first player
 .proc draw_standing_sprite1
   PHP
   PHA
@@ -1433,215 +1077,6 @@ leave2:
   RTS
 .endproc
 
-;Sprite tile assignment for second player
-.proc draw_standing_sprite2
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-  LDA #$00  
-  STA $0241
-  LDA #$01
-  STA $0245
-  LDA #$10
-  STA $0249
-  LDA #$11
-  STA $024d
-
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS
-.endproc
-
-.proc draw_1stwalking_sprite2
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-  LDA #$02  
-  STA $0241
-  LDA #$03
-  STA $0245
-  LDA #$12
-  STA $0249
-  LDA #$13
-  STA $024d
-
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS
-.endproc
-
-.proc draw_2ndwalking_sprite2
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-  LDA #$04  ;This first batch of selects the sprite via tiles and stores them
-  STA $0241
-  LDA #$05
-  STA $0245
-  LDA #$14
-  STA $0249
-  LDA #$15
-  STA $024d
-
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS
-.endproc
-
-.proc draw_3rdwalking_sprite2
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-  LDA #$06  
-  STA $0241
-  LDA #$07
-  STA $0245
-  LDA #$16
-  STA $0249
-  LDA #$17
-  STA $024d
-
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS
-.endproc
-
-.proc draw_jumping_sprite2
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-  LDA #$08  
-  STA $0241
-  LDA #$09
-  STA $0245
-  LDA #$18
-  STA $0249
-  LDA #$19
-  STA $024d
-
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS
-.endproc
-
-.proc draw_attack_sprite2
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-  LDA #$0e  
-  STA $0241
-  LDA #$0f
-  STA $0245
-  LDA #$1e
-  STA $0249
-  LDA #$1f
-  STA $024d
-
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS
-.endproc
-
-.proc draw_hurt_sprite2
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-  LDA #$0a  
-  STA $0241
-  LDA #$0b
-  STA $0245
-  LDA #$1a
-  STA $0249
-  LDA #$1b
-  STA $024d
-
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS
-.endproc
-
-.proc draw_killed_sprite2
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-  LDA #$0c  
-  STA $0241
-  LDA #$0d
-  STA $0245
-  LDA #$1c
-  STA $0249
-  LDA #$1d
-  STA $024d
-
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS
-.endproc
-
 .proc gravity
   PHP
   PHA
@@ -1687,51 +1122,6 @@ exit:
   RTS 
 .endproc
 
-.proc gravity2
-  PHP
-  PHA
-  TXA
-  PHA
-  TYA
-  PHA
-
-  LDA y_pos_p2
-  CMP #$C7
-  BEQ floor2
-
-
-  LDA x_pos_p2
-  CMP #$68      
-  BCC CheckPlattform2 
-
-  LDA x_pos_p2   
-  CMP #$A0    
-  BCS CheckPlattform2
-
-  LDA y_pos_p2  
-  CMP #$ab   
-  BEQ floor2 
-
-
-CheckPlattform2:
-  INC y_pos_p2 
-  jmp exit2
-
-floor2:
-  LDA #$00
-  STA height2
-
-exit2:
-
-  PLA
-  TAY
-  PLA
-  TAX
-  PLA
-  PLP
-  RTS 
-.endproc
-
 .proc walk_loop
   PHP
   PHA
@@ -1752,8 +1142,27 @@ exit2:
   CMP #$50
   bcc drawwalk1
   CMP #$60
-  LDA #$00
-  STA clock
+  bcc drawwalk2
+  CMP #$70
+  bcc drawwalk3
+  CMP #$80
+  bcc drawwalk2
+  CMP #$90
+  bcc drawwalk1
+  CMP #$A0
+  bcc drawwalk2
+  CMP #$B0
+  bcc drawwalk3
+  CMP #$C0
+  bcc drawwalk2
+  CMP #$D0
+  bcc drawwalk1
+  CMP #$E0
+  bcc drawwalk2
+  CMP #$F0
+  bcc drawwalk3
+  CMP #$FE
+  bcc drawwalk2
 
 drawwalk1:
   jsr draw_1stwalking_sprite1
@@ -1775,7 +1184,7 @@ exitwalk:
   RTS
 .endproc
 
-.proc walk_loop2
+.proc jump_height
   PHP
   PHA
   TXA
@@ -1783,32 +1192,20 @@ exitwalk:
   TYA
   PHA
 
-  lda clock2
+  lda height
   CMP #$10
-  bcc draw2walk1
+  bcc goingUp
   CMP #$20
-  bcc draw2walk2
+  bcc goingUp
   CMP #$30
-  bcc draw2walk3
-  CMP #$40
-  bcc draw2walk2
-  CMP #$50
-  bcc draw2walk1
-  CMP #$60
-  LDA #$00
-  STA clock2
+  
+  
+  jmp exitJump
 
-draw2walk1:
-  jsr draw_1stwalking_sprite2
-  jmp exitwalk2
-draw2walk2:
-  jsr draw_2ndwalking_sprite2
-  jmp exitwalk2
-draw2walk3:
-  jsr draw_3rdwalking_sprite2
+  goingUp:
+    INC height
 
-
-exitwalk2:
+exitJump:
   PLA
   TAY
   PLA
@@ -1819,8 +1216,6 @@ exitwalk2:
 .endproc
 
 
-
-
 nmi:      ;Specifies interruptions for the rendering loops
   LDA #$00
   STA $2003
@@ -1828,35 +1223,19 @@ nmi:      ;Specifies interruptions for the rendering loops
   STA $4014
 
   jsr handle_player_hurt
-  jsr handle_player_hurt2
 
-
-  
   lda player1_dir
   CMP #$00
   BEQ draw_player_right
-  jsr draw_player1L    ;Uses variables in zero page RAM to draw character on screen
+  jsr draw_playerL    ;Uses variables in zero page RAM to draw character on screen
   jmp drawplayerleftdone
   draw_player_right:
-    jsr draw_player1R
+    jsr draw_playerR
 drawplayerleftdone:
-
-  lda player2_dir
-  CMP #$00
-  BEQ draw_player2_right
-  jsr draw_player2L    ;Uses variables in zero page RAM to draw character on screen
-  jmp drawplayer2leftdone
-  draw_player2_right:
-    jsr draw_player2R
-drawplayer2leftdone:
-
-  jsr update_players  ;Jump to subroutine that scans button presses to change sprite coordinates in zero page RAM
+  jsr update_player  ;Jump to subroutine that scans button presses to change sprite coordinates in zero page RAM
+  jsr update_player2
   jsr gravity
-  jsr gravity2
   jsr animation_state_machine
-  jsr animation_state_machine2
-
-  
 
 
 	LDA #$00
@@ -1887,8 +1266,8 @@ palettes:
 
   ; Sprite Palettes
   .byte $0C, $07, $10, $37
-  .byte $0C, $0f, $3d, $2d
-  .byte $0C, $20, $21, $31
+  .byte $0C, $20, $2d, $2c
+  .byte $0C, $2d, $21, $31
   .byte $0C, $00, $00, $00
 
 
@@ -1985,29 +1364,29 @@ attributes:
   y_pos_p2: .res 1 ;Initializes player y position in Zero page RAM
   
   clock: .res 1
-  clock2: .res 1
   player1_dir: .res 1
   timer: .res 1
   seconds: .res 1
   x_temporary_p1: .res 1
-  x_temporary_p2: .res 1
+  jump_status: .res 1
   height: .res 1
-  height2: .res 1
   player_hurt: .res 1
   player_dead: .res 1
   player1_HP: .res 1
   last_frame_hurt: .res 1 ; Flag to track if player was hurt last frame
-   last_frame_hurt2: .res 1
-  player_attack: .res 1
+  heart_x_pos: .res 1
+  heart_y_pos: .res 1
+  player_height: .res 1
+  player_jump: .res 1
 
+  player_attack: .res 1
   player2_HP: .res 1
   player2_dir: .res 1
+  player2_fall: .res 1
   player2_jump: .res 1
   player2_hurt: .res 1
   player2_dead: .res 1
-  player2_attack: .res 1
-
-  frame_turn: .res 1
+  ; player2_attack: .res 1
 
 .segment "CHARS" ;Import Spritesheets
 .incbin "wars.chr" ;Spritesheets generated by NEXXT
